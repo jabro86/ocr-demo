@@ -1,7 +1,6 @@
 import * as React from "react";
 import Dropzone, { FileWithPreview } from "react-dropzone";
 import { Grid, Header, Progress, Segment } from "semantic-ui-react";
-import { TesseractStatic } from "tesseract.js";
 
 import { RouteComponentProps } from "@reach/router";
 
@@ -23,46 +22,38 @@ const style = {
 
 const { Column } = Grid;
 
-const Tesseract: TesseractStatic = (window as any).Tesseract;
-
 interface StateType {
   result: string | undefined;
   fileName: string | undefined;
-  progress: number | undefined;
-  status: string | undefined;
   imageSrc: string | undefined;
 }
 
-class App extends React.Component<RouteComponentProps, StateType> {
+class Server extends React.Component<RouteComponentProps, StateType> {
   public initialState = {
     result: undefined,
-    progress: undefined,
     fileName: undefined,
-    status: undefined,
     imageSrc: undefined
   };
 
   public state = this.initialState;
 
   public render() {
-    const { progress, status, result } = this.state;
+    const { result, fileName } = this.state;
     return (
       <div>
         <Header
           as="h1"
-          content="tesseract.js in browser"
+          content="tesseract on server (go/c++)"
           style={style.h1}
           textAlign="center"
         />
-        {progress !== undefined &&
-          status !== undefined && (
-            <Progress
-              percent={Math.floor(progress * 100)}
-              indicating={progress < 1 && result === undefined}
-              success={progress === 1 && result !== undefined}
-              label={status}
-            />
-          )}
+        {fileName !== undefined && (
+          <Progress
+            percent={100}
+            active={result === undefined}
+            success={result !== undefined}
+          />
+        )}
         <Grid columns={3} stackable={true}>
           <Column>
             <Header
@@ -117,20 +108,21 @@ class App extends React.Component<RouteComponentProps, StateType> {
       reader.onloadend = () => {
         if (typeof reader.result === "string") {
           this.setState({ imageSrc: reader.result });
+          fetch("/base64", {
+            method: "POST",
+            body: JSON.stringify({
+              base64: reader.result,
+              trim: "\n"
+            })
+          })
+            .then(response => response.json())
+            .then((data: { result: string; version: string }) => {
+              this.setState({ result: data.result });
+            });
         }
       };
       reader.readAsDataURL(file);
       this.setState({ fileName: file.name });
-
-      Tesseract.recognize(file, { lang: "deu" })
-        .progress(({ progress, status }) => {
-          this.setState({ progress, status });
-        })
-        .catch(err => console.error(err))
-        .then(result => {
-          this.setState({ result: result.text });
-        })
-        .finally(resultOrError => console.log(resultOrError));
     });
   };
 
@@ -139,4 +131,4 @@ class App extends React.Component<RouteComponentProps, StateType> {
   };
 }
 
-export default App;
+export default Server;
